@@ -68,9 +68,23 @@ export interface WooOrderLineItem {
 export async function getCustomerOrders(
   customerId: number
 ): Promise<WooOrder[]> {
-  return wooCommerceRequest<WooOrder[]>(
-    `/orders?customer=${customerId}&orderby=date&order=desc`
-  );
+  const perPage = 100;
+  const orders: WooOrder[] = [];
+  let page = 1;
+
+  while (true) {
+    const pageOrders = await wooCommerceRequest<WooOrder[]>(
+      `/orders?customer=${customerId}&orderby=date&order=desc&per_page=${perPage}&page=${page}`
+    );
+
+    orders.push(...pageOrders);
+
+    if (pageOrders.length < perPage) {
+      return orders;
+    }
+
+    page += 1;
+  }
 }
 
 export async function getCustomerOrder(
@@ -93,4 +107,38 @@ export async function getCustomerOrder(
     console.error("GET_CUSTOMER_ORDER_ERROR:", error);
     return null;
   }
+}
+
+
+
+export interface CreateOrderInput {
+  customer_id?: number;
+  payment_method?: string;
+  payment_method_title?: string;
+  set_paid?: boolean;
+  billing: WooOrder["billing"];
+  shipping?: WooOrder["shipping"];
+  line_items: {
+    product_id: number;
+    variation_id?: number;
+    quantity: number;
+  }[];
+  shipping_lines?: {
+    method_id: string;
+    method_title: string;
+    total: string;
+  }[];
+}
+
+export interface CreateOrderResponse extends WooOrder {
+  order_key: string;
+}
+
+export async function createOrder(
+  input: CreateOrderInput
+): Promise<CreateOrderResponse> {
+  return wooCommerceRequest<CreateOrderResponse>("/orders", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }

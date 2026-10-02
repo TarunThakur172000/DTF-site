@@ -11,24 +11,38 @@ type CustomCartItem = {
   id: number;
   quantity: number;
   name?: string;
+
   width: string;
   height: string;
   jobName: string;
+
   additionalService?: string;
   orderNotes?: string;
   fileUrl?: string;
+
   prices?: {
     price: string;
+    line_total: string;
     currency_symbol: string;
   };
 };
 
 type CustomCartResponse = {
   success: boolean;
+
   items: CustomCartItem[];
+
+  totals?: {
+    subtotal: string;
+    shipping: string;
+    tax: string;
+    total: string;
+    currency_symbol: string;
+  };
+
+  cartCount?: number;
   message?: string;
 };
-
 export function CartClient() {
   const [cart, setCart] = useState<CustomCartResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,7 +59,7 @@ export function CartClient() {
         method: "GET",
         cache: "no-store",
       });
-
+      
       if (!response.ok) {
         throw new Error("Failed to load cart");
       }
@@ -53,6 +67,7 @@ export function CartClient() {
       const json: CustomCartResponse = await response.json();
 
       if (json.success) {
+        console.log("Cart loaded:", json);
         setCart(json);
       } else {
         throw new Error(
@@ -206,9 +221,10 @@ export function CartClient() {
             >
               {/* Product Icon */}
               <div className="w-20 h-20 rounded-xl overflow-hidden bg-surfaceMuted shrink-0 flex items-center justify-center">
-                <ShoppingBag
-                  size={24}
-                  className="text-primary-200"
+                <img 
+                  src={item.fileUrl || "/placeholder-image.jpg"}
+                  alt={item.name}
+                  className="w-full h-full object-cover"
                 />
               </div>
 

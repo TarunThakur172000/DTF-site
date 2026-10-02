@@ -40,14 +40,6 @@ export async function wooCommerceRequest<T>(
   headers.set("Content-Type", "application/json");
   headers.set("Authorization", `Basic ${credentials}`);
 
-  console.log("WooCommerce Request:", {
-    url,
-    options: {
-      ...options,
-      headers,
-    },
-  });
-
   const response = await fetch(url, {
     ...options,
     headers,
@@ -61,7 +53,6 @@ export async function wooCommerceRequest<T>(
       `WooCommerce REST API error ${response.status}:`,
       responseText
     );
-
     throw new Error(
       `WooCommerce REST API error ${response.status}: ${responseText}`
     );

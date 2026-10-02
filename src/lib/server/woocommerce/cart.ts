@@ -4,12 +4,23 @@ export type CartItem = {
   key: string;
   id: number;
   quantity: number;
+
+  name?: string;
+
   width: string;
   height: string;
+
   jobName: string;
+
   additionalService?: string;
   orderNotes?: string;
+
   fileUrl?: string;
+
+  prices?: {
+    price: string;
+    currency_symbol: string;
+  };
 };
 
 export type CartResponse = {

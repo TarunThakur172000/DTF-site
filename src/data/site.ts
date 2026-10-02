@@ -46,8 +46,8 @@ export const NAV: NavItem[] = [
     label: "Transfer Printing",
     to: "/transfer-printing",
     children: [
-      { label: "DTF", to: "/transfer-printing/dtf", target: "", description: "Full-color transfers for any fabric" },
-      { label: "UV DTF", to: "/transfer-printing/dtf-transfers", target: "", description: "Glossy transfers for hard surfaces" },
+      { label: "DTF", to: "/transfer-printing/dtf-transfers", target: "", description: "Full-color transfers for any fabric" },
+      { label: "UV DTF", to: "/transfer-printing/uv-dtf-transfers", target: "", description: "Glossy transfers for hard surfaces" },
       { label: "Glitter DTF", to: "/transfer-printing/glitter-dtf-transfers", target: "", description: "Sparkle finish transfers" },
       { label: "Sublimation", to: "/transfer-printing/sublimation-transfers", target: "", description: "All-over dye printing" },
     ],

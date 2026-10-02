@@ -48,7 +48,7 @@ export async function GET() {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error(
+      console.error( 
         "WordPress get cart error:",
         response.status,
         data

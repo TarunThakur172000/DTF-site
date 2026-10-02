@@ -3,10 +3,8 @@ import { redirect } from "next/navigation";
 
 import { Card } from "../../../components/ui/Card";
 import { StatusBadge } from "../../../components/dashboard/StatusBadge";
-
 import { getCurrentUser } from "@/lib/server/auth/session";
-import { connectDB } from "@/lib/server/db";
-import Order from "@/models/Order";
+import { getCustomerOrders } from "@/lib/server/woocommerce/orders";
 
 export const metadata: Metadata = {
   title: "Orders",
@@ -19,28 +17,17 @@ export default async function DashboardOrdersPage() {
     redirect("/login");
   }
 
-  await connectDB();
+  const orders = user.woocommerceCustomerId
+    ? await getCustomerOrders(user.woocommerceCustomerId)
+    : [];
 
-  /*
-   * Only fetch orders belonging to the logged-in user.
-   *
-   * We use MongoDB userId instead of accepting a
-   * customer ID from the browser.
-   */
-  const orders = await Order.find({
-    userId: user._id,
-  })
-    .sort({ dateCreated: -1 })
-    .lean();
+    console.log("Orders:", orders); // Log the orders to the console for debugging
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Your Orders
-        </h1>
-
-        <p className="text-primary-400 mt-1">
+        <h1 className="text-2xl font-bold tracking-tight">Your Orders</h1>
+        <p className="mt-1 text-primary-400">
           Track production and shipping status for every order.
         </p>
       </div>
@@ -56,69 +43,47 @@ export default async function DashboardOrdersPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-primary-400 border-b border-primary-50 bg-surfaceMuted">
-                  <th className="px-6 py-3.5 font-medium">
-                    Order
-                  </th>
-
-                  <th className="px-6 py-3.5 font-medium">
-                    Date
-                  </th>
-
-                  <th className="px-6 py-3.5 font-medium">
-                    Items
-                  </th>
-
-                  <th className="px-6 py-3.5 font-medium">
-                    Total
-                  </th>
-
-                  <th className="px-6 py-3.5 font-medium">
-                    Status
-                  </th>
+                <tr className="border-b border-primary-50 bg-surfaceMuted text-left text-primary-400">
+                  <th className="px-6 py-3.5 font-medium">Order</th>
+                  <th className="px-6 py-3.5 font-medium">Date</th>
+                  <th className="px-6 py-3.5 font-medium">Items</th>
+                  <th className="px-6 py-3.5 font-medium">Total</th>
+                  <th className="px-6 py-3.5 font-medium">Status</th>
                 </tr>
               </thead>
-
               <tbody className="divide-y divide-primary-50">
                 {orders.map((order) => {
-                  const itemCount = order.lineItems.reduce(
-                    (total, item) =>
-                      total + item.quantity,
+                  const itemCount = (order.line_items ?? []).reduce(
+                    (total, item) => total + item.quantity,
                     0
                   );
 
                   return (
                     <tr
-                      key={order._id.toString()}
+                      key={order.id}
                       className="hover:bg-surfaceMuted/60"
                     >
                       <td className="px-6 py-4 font-medium text-primary-900">
-                        #{order.wooCommerceOrderId}
+                        #{order.id}
                       </td>
-
                       <td className="px-6 py-4 text-primary-400">
-                        {new Date(
-                          order.dateCreated
-                        ).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        {new Date(order.date_created).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          }
+                        )}
                       </td>
-
                       <td className="px-6 py-4 text-primary-400">
                         {itemCount}
                       </td>
-
                       <td className="px-6 py-4 font-medium text-primary-900">
-                        {order.currency}{" "}
-                        {Number(order.total).toFixed(2)}
+                        {order.currency} {Number(order.total).toFixed(2)}
                       </td>
-
                       <td className="px-6 py-4">
-                        <StatusBadge
-                          status={order.status}
-                        />
+                        <StatusBadge status={order.status} />
                       </td>
                     </tr>
                   );
@@ -131,4 +96,3 @@ export default async function DashboardOrdersPage() {
     </div>
   );
 }
-

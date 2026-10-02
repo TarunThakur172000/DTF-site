@@ -10,8 +10,7 @@ import { Card } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/dashboard/StatusBadge";
 
 import { getCurrentUser } from "@/lib/server/auth/session";
-import { connectDB } from "@/lib/server/db";
-import Order from "@/models/Order";
+import { getCustomerOrders } from "@/lib/server/woocommerce/orders";
 
 export default async function DashboardOverviewPage() {
   const user = await getCurrentUser();
@@ -20,20 +19,9 @@ export default async function DashboardOverviewPage() {
     redirect("/login");
   }
 
-  await connectDB();
-
-  /*
-   * Get all orders belonging to the logged-in user.
-   *
-   * IMPORTANT:
-   * We use user._id from the authenticated session.
-   * We never accept a userId/customerId from the browser.
-   */
-  const orders = await Order.find({
-    userId: user._id,
-  })
-    .sort({ dateCreated: -1 })
-    .lean();
+  const orders = user.woocommerceCustomerId
+    ? await getCustomerOrders(user.woocommerceCustomerId)
+    : [];
 
   /*
    * Dashboard statistics
@@ -157,15 +145,13 @@ export default async function DashboardOverviewPage() {
 
               <tbody className="divide-y divide-primary-50">
                 {recentOrders.map((order) => (
-                  <tr key={order._id.toString()}>
+                  <tr key={order.id}>
                     <td className="py-3.5 font-medium text-primary-900">
-                      #{order.wooCommerceOrderId}
+                      #{order.id}
                     </td>
 
                     <td className="py-3.5 text-primary-400">
-                      {new Date(
-                        order.dateCreated
-                      ).toLocaleDateString("en-US", {
+                      {new Date(order.date_created).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
@@ -173,7 +159,7 @@ export default async function DashboardOverviewPage() {
                     </td>
 
                     <td className="py-3.5 text-primary-400">
-                      {order.lineItems.reduce(
+                      {(order.line_items ?? []).reduce(
                         (total, item) =>
                           total + item.quantity,
                         0
