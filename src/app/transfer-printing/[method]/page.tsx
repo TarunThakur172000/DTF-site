@@ -12,6 +12,8 @@ import { AddToCart } from "../../../components/product/AddToCart";
 import { wooCommerceRequest } from "@/lib/server/woocommerce/client";
 import { DTFProductForm } from "@/components/product/TFProductForm";
 
+export const dynamic = "force-dynamic";
+
 type WooProduct = {
   id: number;
   name: string;
