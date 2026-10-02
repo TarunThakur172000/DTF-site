@@ -38,18 +38,24 @@ export function CartCount() {
   }, []);
 
   useEffect(() => {
-    loadCartCount();
+    queueMicrotask(() => {
+      void loadCartCount();
+    });
 
     window.addEventListener(
       "cart-updated",
       loadCartCount
     );
+    window.addEventListener("focus", loadCartCount);
+    window.addEventListener("pageshow", loadCartCount);
 
     return () => {
       window.removeEventListener(
         "cart-updated",
         loadCartCount
       );
+      window.removeEventListener("focus", loadCartCount);
+      window.removeEventListener("pageshow", loadCartCount);
     };
   }, [loadCartCount]);
 

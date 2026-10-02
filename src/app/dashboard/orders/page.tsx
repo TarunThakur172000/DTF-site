@@ -21,8 +21,6 @@ export default async function DashboardOrdersPage() {
     ? await getCustomerOrders(user.woocommerceCustomerId)
     : [];
 
-    console.log("Orders:", orders); // Log the orders to the console for debugging
-
   return (
     <div className="space-y-6">
       <div>

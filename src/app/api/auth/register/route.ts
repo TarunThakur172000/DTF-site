@@ -140,7 +140,6 @@ if (existingUser) {
     // --------------------------------
     //  Save verification code
     // --------------------------------
-console.log("Saving verification code for user:", user._id);
     await VerificationCode.create({
       userId: user._id,
       codeHash,

@@ -53,7 +53,6 @@ const onSubmit = async (data: LoginValues) => {
         return;
       }
 
-        console.log("LOGIN_SUCCESS:", result);
       // -----------------------------------
       // Login successful
       // -----------------------------------

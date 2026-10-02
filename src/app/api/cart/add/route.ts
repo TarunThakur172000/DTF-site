@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import {getCurrentUser} from "@/lib/server/auth/session";
 
 const WORDPRESS_URL = process.env.WOOCOMMERCE_BASE_URL;
@@ -54,9 +53,11 @@ export async function POST(request: Request) {
       height = String(formData.get("height") || "");
       jobName = String(formData.get("jobName") || "");
       additionalService = String(
-        formData.get("additionalService") || ""
+        formData.get("additionalService") || formData.get("addon") || ""
       );
-      orderNotes = String(formData.get("orderNotes") || "");
+      orderNotes = String(
+        formData.get("orderNotes") || formData.get("notes") || ""
+      );
 
       const uploadedFile = formData.get("file");
 
@@ -80,8 +81,8 @@ export async function POST(request: Request) {
       width = body.width || "";
       height = body.height || "";
       jobName = body.jobName || "";
-      additionalService = body.additionalService || "";
-      orderNotes = body.orderNotes || "";
+      additionalService = body.additionalService || body.addon || "";
+      orderNotes = body.orderNotes || body.notes || "";
     }
 
     /*

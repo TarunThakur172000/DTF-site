@@ -33,7 +33,6 @@ export function SettingsForm({ user }: { user: any }) {
 
   const onSubmit = async (data: SettingsValues) => {
     setError("");
-    console.log("Submitting data:", data); // Debugging line
     try {
       // 3. Make the real API call to update the database
       const response = await fetch("/api/account/update", {

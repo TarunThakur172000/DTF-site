@@ -93,11 +93,6 @@ export async function wooCommerceFetch<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  console.log("Custom Store Request:", {
-    url,
-    method: options.method || "GET",
-  });
-
   const response = await fetch(url, {
     ...options,
     headers,

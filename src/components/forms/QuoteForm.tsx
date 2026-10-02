@@ -46,14 +46,42 @@ export function QuoteForm({ productType, onSuccess }: QuoteFormProps) {
   const needsSize = isBanner || isMagnet;
 
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [artwork, setArtwork] = useState<File[]>([]);
 
-  const onSubmit = async () => {
-    await new Promise((r) => setTimeout(r, 900));
-    setSubmitted(true);
-    reset();
+  const onSubmit = async (values: QuoteFormValues) => {
+    setSubmitError("");
 
-    if (onSuccess) {
-      onSuccess();
+    try {
+      const formData = new FormData();
+      Object.entries(values).forEach(([key, value]) => {
+        if (value) formData.append(key, value);
+      });
+      artwork.forEach((file) => formData.append("artwork", file, file.name));
+
+      const response = await fetch("/api/quote", {
+        method: "POST",
+        body: formData,
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Unable to submit your quote request.");
+      }
+
+      setSubmitted(true);
+      reset({ productType: productType ?? "" });
+      setArtwork([]);
+
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error
+          ? error.message
+          : "Unable to submit your quote request."
+      );
     }
   };
 
@@ -210,13 +238,17 @@ export function QuoteForm({ productType, onSuccess }: QuoteFormProps) {
         </Field>
       )}
       <Field label="Artwork">
-        <FileUpload />
+        <FileUpload
+          onFilesChange={setArtwork}
+          helpText="Accepted formats: AI, EPS, SVG, PDF, PNG, JPG; up to 3 files and 10 MB total"
+        />
       </Field>
 
       <Field label="Notes (optional)">
         <textarea rows={4} className="form-input resize-none" {...register("notes")} />
       </Field>
 
+      {submitError && <p role="alert" className="text-sm text-red-600">{submitError}</p>}
       <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={isSubmitting}>
         {isSubmitting ? "Submitting…" : "Submit Request"}
       </Button>

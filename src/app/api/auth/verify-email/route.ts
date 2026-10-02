@@ -23,63 +23,11 @@ if (!result.success) {
   return validationError(result.error);
 }
 
-console.log("Request body:", body);
-
 const { email, otp } = result.data;
-
-    // // --------------------------------
-    // // 1. Validate input
-    // // --------------------------------
-
-    // if (!email || !otp) {
-    //   return NextResponse.json(
-    //     {
-    //       success: false,
-    //       message: "Email and verification code are required.",
-    //     },
-    //     { status: 400 }
-    //   );
-    // }
-
-    // if (typeof email !== "string") {
-    //   return NextResponse.json(
-    //     {
-    //       success: false,
-    //       message: "Invalid email address.",
-    //     },
-    //     { status: 400 }
-    //   );
-    // }
-
-    // if (
-    //   typeof otp !== "string" ||
-    //   !/^\d{6}$/.test(otp)
-    // ) {
-    //   return NextResponse.json(
-    //     {
-    //       success: false,
-    //       message: "Verification code must be 6 digits.",
-    //     },
-    //     { status: 400 }
-    //   );
-    // }
-
-    // const normalizedEmail = email
-    //   .trim()
-    //   .toLowerCase();
-
-    // await connectDB();
-
-    // // --------------------------------
-    // // 2. Find user
-    // // --------------------------------
-
-   
     const user = await User.findOne({
       email: email,
     });
 
-   console.log("Found user:", user); 
     if (!user) {
       return NextResponse.json(
         {
@@ -107,7 +55,6 @@ const { email, otp } = result.data;
     // --------------------------------
     // 4. Find latest verification code
     // --------------------------------
-    console.log("Finding latest verification code for user:", user._id);
     const verification =
       await VerificationCode.findOne({
         userId: user._id,
@@ -272,7 +219,6 @@ const { email, otp } = result.data;
       "VERIFY_EMAIL_ERROR:",
       error
     );
-    console.log(NextResponse.error)
     return NextResponse.json(
       {
         success: false,

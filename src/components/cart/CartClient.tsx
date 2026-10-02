@@ -49,6 +49,18 @@ export function CartClient() {
 
   useEffect(() => {
     loadCart();
+
+    const refreshCart = () => {
+      void loadCart();
+    };
+
+    window.addEventListener("focus", refreshCart);
+    window.addEventListener("pageshow", refreshCart);
+
+    return () => {
+      window.removeEventListener("focus", refreshCart);
+      window.removeEventListener("pageshow", refreshCart);
+    };
   }, []);
 
   async function loadCart() {
@@ -67,7 +79,6 @@ export function CartClient() {
       const json: CustomCartResponse = await response.json();
 
       if (json.success) {
-        console.log("Cart loaded:", json);
         setCart(json);
       } else {
         throw new Error(

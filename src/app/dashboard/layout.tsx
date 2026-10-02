@@ -24,7 +24,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     fullName: String(user.fullName || ""),
     email: String(user.email || "")
   };
-  console.log("safeUser", safeUser);
   
   return <DashboardShell user={safeUser}>{children}</DashboardShell>;
 }

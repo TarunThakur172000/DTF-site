@@ -53,7 +53,7 @@ export function AddToCart({ productId }: AddToCartProps) {
       formData.append("orderNotes", orderNotes.trim());
       formData.append("file", file);
 
-      const response = await fetch("/api/cart", {
+      const response = await fetch("/api/cart/add", {
         method: "POST",
         body: formData,
       });
