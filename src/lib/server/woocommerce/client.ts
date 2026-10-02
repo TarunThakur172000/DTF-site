@@ -1,33 +1,19 @@
 import "server-only";
 
-const baseUrl = process.env.WOOCOMMERCE_BASE_URL;
-const consumerKey = process.env.WOOCOMMERCE_CONSUMER_KEY;
-const consumerSecret = process.env.WOOCOMMERCE_CONSUMER_SECRET;
-const storeSecret = process.env.WP_STORE_SECRET;
-if (!baseUrl) {
-  throw new Error("WOOCOMMERCE_BASE_URL is missing");
-}
-
-if (!baseUrl) {
-  throw new Error("NEXT_PUBLIC_WORDPRESS_URL is missing");
-}
-
-if (!storeSecret) {
-  throw new Error("WP_STORE_SECRET is missing");
-}
-
-if (!consumerKey) {
-  throw new Error("WOOCOMMERCE_CONSUMER_KEY is missing");
-}
-
-if (!consumerSecret) {
-  throw new Error("WOOCOMMERCE_CONSUMER_SECRET is missing");
-}
-
 export async function wooCommerceRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const baseUrl = process.env.WOOCOMMERCE_BASE_URL;
+  const consumerKey = process.env.WOOCOMMERCE_CONSUMER_KEY;
+  const consumerSecret = process.env.WOOCOMMERCE_CONSUMER_SECRET;
+
+  if (!baseUrl || !consumerKey || !consumerSecret) {
+    throw new Error(
+      "WooCommerce URL and REST API credentials must be configured"
+    );
+  }
+
   const url = `${baseUrl}/wp-json/wc/v3${endpoint}`;
 
   const credentials = Buffer.from(
@@ -75,12 +61,21 @@ export async function wooCommerceFetch<T>(
   message?: string;
   [key: string]: any;
 }> {
+  const baseUrl = process.env.WOOCOMMERCE_BASE_URL;
+  const storeSecret = process.env.WP_STORE_SECRET;
+
+  if (!baseUrl || !storeSecret) {
+    throw new Error(
+      "WOOCOMMERCE_BASE_URL and WP_STORE_SECRET must be configured"
+    );
+  }
+
   const url = `${baseUrl}/wp-json/mystore/v1${endpoint}`;
 
   const headers = new Headers(options.headers);
 
   headers.set("Accept", "application/json");
-  headers.set("x-store-secret", storeSecret!);
+  headers.set("x-store-secret", storeSecret);
 
   if (authToken) {
     headers.set("Authorization", `Bearer ${authToken}`);

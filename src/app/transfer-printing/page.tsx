@@ -52,24 +52,25 @@ type WooCategory = {
 async function getProductsByCategories(): Promise<
   { category: WooCategory; products: WooProduct[] }[]
 > {
-  const categories = await wooCommerceRequest<WooCategory[]>(
-    "/products/categories?per_page=100"
-  );
+  try {
+    const categories = await wooCommerceRequest<WooCategory[]>(
+      "/products/categories?slug=transfer-printing&per_page=100"
+    );
+    const category = categories[0];
 
-  const result = await Promise.all(
-    categories.map(async (category) => {
-      const products = await wooCommerceRequest<WooProduct[]>(
-        `/products?category=${category.id}&per_page=100`
-      );
+    if (!category) {
+      return [];
+    }
 
-      return {
-        category,
-        products,
-      };
-    })
-  );
+    const products = await wooCommerceRequest<WooProduct[]>(
+      `/products?category=${category.id}&per_page=100`
+    );
 
-  return result;
+    return [{ category, products }];
+  } catch (error) {
+    console.error("TRANSFER_PRINTING_CATALOG_ERROR:", error);
+    return [];
+  }
 }
 
 export default async function TransferPrinting() {
