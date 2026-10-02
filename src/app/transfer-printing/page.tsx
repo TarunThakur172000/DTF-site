@@ -50,13 +50,45 @@ type WooCategory = {
   parent: number;
 };
 
+async function getAllCategories(): Promise<WooCategory[]> {
+  const perPage = 100;
+  const categories: WooCategory[] = [];
+
+  for (let page = 1; ; page += 1) {
+    const pageCategories = await wooCommerceRequest<WooCategory[]>(
+      `/products/categories?per_page=${perPage}&page=${page}`
+    );
+    categories.push(...pageCategories);
+
+    if (pageCategories.length < perPage) {
+      return categories;
+    }
+  }
+}
+
+async function getAllProductsForCategory(
+  categoryId: number
+): Promise<WooProduct[]> {
+  const perPage = 100;
+  const products: WooProduct[] = [];
+
+  for (let page = 1; ; page += 1) {
+    const pageProducts = await wooCommerceRequest<WooProduct[]>(
+      `/products?category=${categoryId}&per_page=${perPage}&page=${page}`
+    );
+    products.push(...pageProducts);
+
+    if (pageProducts.length < perPage) {
+      return products;
+    }
+  }
+}
+
 async function getProductsByCategories(): Promise<
   { category: WooCategory; products: WooProduct[] }[]
 > {
   try {
-    const categories = await wooCommerceRequest<WooCategory[]>(
-      "/products/categories?per_page=100"
-    );
+    const categories = await getAllCategories();
     const category = categories.find(
       (item) => item.slug === "transfer-printing"
     );
@@ -80,11 +112,7 @@ async function getProductsByCategories(): Promise<
     }
 
     const productPages = await Promise.all(
-      [...categoryIds].map((categoryId) =>
-        wooCommerceRequest<WooProduct[]>(
-          `/products?category=${categoryId}&per_page=100`
-        )
-      )
+      [...categoryIds].map(getAllProductsForCategory)
     );
     const products = new Map<number, WooProduct>();
     productPages.flat().forEach((product) => products.set(product.id, product));
