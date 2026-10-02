@@ -146,13 +146,3 @@ export async function clearCart(authToken?: string, sessionToken?: string) {
   return response.json() as Promise<CartResponse>;
 }
 
-export async function removeCartItem(itemKey: string, authToken?: string, sessionToken?: string) {
-  const headers = getStoreHeaders(authToken, sessionToken);
-
-  const response = await fetch(`${process.env.WOOCOMMERCE_BASE_URL}/wp-json/mystore/v1/cart/item?key=${encodeURIComponent(itemKey)}`, {
-    method: "DELETE",
-    headers,
-  });
-
-  return response.json() as Promise<CartResponse>;
-}
