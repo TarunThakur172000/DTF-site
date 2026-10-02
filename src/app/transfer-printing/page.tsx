@@ -47,6 +47,7 @@ type WooCategory = {
   id: number;
   name: string;
   slug: string;
+  parent: number;
 };
 
 async function getProductsByCategories(): Promise<
@@ -54,19 +55,41 @@ async function getProductsByCategories(): Promise<
 > {
   try {
     const categories = await wooCommerceRequest<WooCategory[]>(
-      "/products/categories?slug=transfer-printing&per_page=100"
+      "/products/categories?per_page=100"
     );
-    const category = categories[0];
+    const category = categories.find(
+      (item) => item.slug === "transfer-printing"
+    );
 
     if (!category) {
       return [];
     }
 
-    const products = await wooCommerceRequest<WooProduct[]>(
-      `/products?category=${category.id}&per_page=100`
-    );
+    const categoryIds = new Set([category.id]);
+    let foundDescendant = true;
 
-    return [{ category, products }];
+    while (foundDescendant) {
+      foundDescendant = false;
+
+      for (const item of categories) {
+        if (!categoryIds.has(item.id) && categoryIds.has(item.parent)) {
+          categoryIds.add(item.id);
+          foundDescendant = true;
+        }
+      }
+    }
+
+    const productPages = await Promise.all(
+      [...categoryIds].map((categoryId) =>
+        wooCommerceRequest<WooProduct[]>(
+          `/products?category=${categoryId}&per_page=100`
+        )
+      )
+    );
+    const products = new Map<number, WooProduct>();
+    productPages.flat().forEach((product) => products.set(product.id, product));
+
+    return [{ category, products: [...products.values()] }];
   } catch (error) {
     console.error("TRANSFER_PRINTING_CATALOG_ERROR:", error);
     return [];

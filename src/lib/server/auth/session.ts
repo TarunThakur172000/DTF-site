@@ -2,6 +2,7 @@ import "server-only";
 
 import crypto from "crypto";
 import { cookies } from "next/headers";
+import { unstable_rethrow } from "next/navigation";
 
 import { connectDB } from "@/lib/server/db";
 import User from "@/models/User";
@@ -129,6 +130,7 @@ export async function getCurrentUser() {
 
     return user;
   } catch (error) {
+    unstable_rethrow(error);
     console.error(
       "GET_CURRENT_USER_ERROR:",
       error
