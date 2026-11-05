@@ -2,12 +2,9 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { redirect, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { LayoutGrid, Package, FileText, Settings, ShoppingCart } from "lucide-react";
 import { LogoutButton } from "./LogoutButton";
-import { MOCK_USER } from "../../data/mock-account";
-import { getCurrentUser } from "@/lib/server/auth/session";
-import { connectDB } from "@/lib/server/db";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/dashboard", icon: LayoutGrid },

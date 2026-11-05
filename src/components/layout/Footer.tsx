@@ -5,17 +5,18 @@ import { Newsletter } from "./Newsletter";
 const logo = "/logo.webp";
 
 const quickLinks = [
+  { label: "Shop Promotional Products", to: "/promotional-products" },
   { label: "About Us", to: "/about" },
   { label: "Contact", to: "/contact" },
-  { label: "Art Zone", to: "/art-zone" },
-  { label: "Jerseys & Team Wear", to: "/jerseys" },
+  { label: "My Account", to: "/dashboard" },
 ];
 
 const serviceLinks = [
-  { label: "Transfer Printing", to: "/transfer-printing" },
-  { label: "Promotional Products", to: "/promotional-products" },
-  { label: "Custom Apparel", to: "/custom-apparel" },
-  { label: "Random Products", to: "/random-products" },
+  { label: "Business Cards", to: "/promotional-products/business-cards" },
+  { label: "Stickers", to: "/promotional-products/stickers" },
+  { label: "Banners", to: "/promotional-products/banners" },
+  { label: "Event Tents", to: "/promotional-products/tents" },
+  { label: "Magnets & Flags", to: "/promotional-products/magnets" },
 ];
 
 export function Footer() {
@@ -30,7 +31,7 @@ export function Footer() {
             PrintPressRepeat
           </Link>
           <p className="mt-4 text-sm text-primary-400 max-w-xs">
-            Custom printing for businesses, teams and creators — from first proof to final delivery.
+            Custom-branded promotional products that help businesses get noticed.
           </p>
           <div className="flex gap-3 mt-5">
             {[Camera, Users, MessageCircle].map((Icon, i) => (

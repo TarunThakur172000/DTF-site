@@ -1,198 +1,296 @@
-import {getCurrentUser} from "@/lib/server/auth/session";
+import { randomUUID } from "node:crypto";
 
-const WORDPRESS_URL = process.env.WOOCOMMERCE_BASE_URL;
-const STORE_SECRET = process.env.WP_STORE_SECRET;
+import {
+  addItemToCart,
+  cartErrorResponse,
+  getCartOwner,
+  getOrCreateCart,
+} from "@/lib/server/cart";
+import type { ICartArtwork, ICartItem } from "@/models/Cart";
+
+const MAX_REQUEST_BYTES = 10 * 1024 * 1024;
+const MAX_ARTWORK_FILES = 5;
+const MAX_ARTWORK_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_ARTWORK_TOTAL_BYTES = 8 * 1024 * 1024;
+
+const ARTWORK_TYPES: Record<string, string> = {
+  ai: "application/postscript",
+  eps: "application/postscript",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  pdf: "application/pdf",
+  png: "image/png",
+  tif: "image/tiff",
+  tiff: "image/tiff",
+};
+
+const FIELD_LIMITS = {
+  width: 30,
+  height: 30,
+  jobName: 120,
+  additionalService: 160,
+  orderNotes: 2000,
+  productSize: 120,
+  customShape: 120,
+  productType: 120,
+  fullName: 120,
+  business: 160,
+  phone: 40,
+  email: 254,
+} as const;
+
+type RequestFields = Record<string, unknown>;
+
+function isRecord(value: unknown): value is RequestFields {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringValue(value: unknown, maxLength: number) {
+  if (value === undefined || value === null || value === "") {
+    return "";
+  }
+  if (typeof value !== "string") {
+    throw new Error("INVALID_FIELD");
+  }
+
+  const normalized = value.trim();
+  if (normalized.length > maxLength) {
+    throw new Error("FIELD_TOO_LONG");
+  }
+  return normalized;
+}
+
+function readField(
+  fields: RequestFields,
+  formData: FormData | null,
+  name: string,
+  aliases: string[] = [],
+  maxLength = 500
+) {
+  const names = [name, ...aliases];
+  const value = names
+    .map((fieldName) => formData?.get(fieldName) ?? fields[fieldName])
+    .find((fieldValue) => fieldValue !== null && fieldValue !== undefined);
+  return stringValue(value, maxLength);
+}
+
+async function readArtworks(formData: FormData | null) {
+  if (!formData) {
+    return [] as ICartArtwork[];
+  }
+
+  const uploads = [...formData.getAll("file"), ...formData.getAll("artwork")].filter(
+    (value): value is File => value instanceof File && value.size > 0
+  );
+
+  if (uploads.length > MAX_ARTWORK_FILES) {
+    throw new Error("TOO_MANY_ARTWORKS");
+  }
+
+  let totalBytes = 0;
+  const artworks: ICartArtwork[] = [];
+
+  for (const upload of uploads) {
+    const extension = upload.name.split(".").pop()?.toLowerCase() ?? "";
+    const contentType = ARTWORK_TYPES[extension];
+    if (!contentType) {
+      throw new Error("UNSUPPORTED_ARTWORK_TYPE");
+    }
+
+    if (upload.size > MAX_ARTWORK_FILE_BYTES) {
+      throw new Error("ARTWORK_TOO_LARGE");
+    }
+    totalBytes += upload.size;
+    if (totalBytes > MAX_ARTWORK_TOTAL_BYTES) {
+      throw new Error("ARTWORK_TOTAL_TOO_LARGE");
+    }
+
+    const fileName = upload.name
+      .replace(/[\\/\u0000-\u001f\u007f]/g, "_")
+      .slice(-120);
+    artworks.push({
+      fileName: fileName || `artwork.${extension}`,
+      contentType,
+      data: Buffer.from(await upload.arrayBuffer()),
+    });
+  }
+
+  return artworks;
+}
+
+function requestErrorResponse(error: unknown) {
+  const cartResponse = cartErrorResponse(error);
+  if (cartResponse) {
+    return cartResponse;
+  }
+
+  if (!(error instanceof Error)) {
+    return null;
+  }
+
+  const validationMessages: Record<string, { message: string; status: number }> = {
+    INVALID_FIELD: { message: "Invalid cart item fields.", status: 400 },
+    FIELD_TOO_LONG: { message: "A cart item field is too long.", status: 400 },
+    TOO_MANY_ARTWORKS: { message: "Upload no more than five artwork files.", status: 400 },
+    UNSUPPORTED_ARTWORK_TYPE: {
+      message: "Artwork must be PNG, JPG, PDF, AI, EPS, TIF, or TIFF.",
+      status: 400,
+    },
+    ARTWORK_TOO_LARGE: { message: "Each artwork file must be 5 MB or smaller.", status: 413 },
+    ARTWORK_TOTAL_TOO_LARGE: {
+      message: "The total artwork size must be 8 MB or smaller.",
+      status: 413,
+    },
+  };
+  const validation = validationMessages[error.message];
+  return validation
+    ? Response.json(
+        { success: false, message: validation.message },
+        { status: validation.status }
+      )
+    : null;
+}
 
 export async function POST(request: Request) {
   try {
-    if (!WORDPRESS_URL) {
-      throw new Error("WOOCOMMERCE_BASE_URL is missing");
-    }
-
-    if (!STORE_SECRET) {
-      throw new Error("WP_STORE_SECRET is missing");
-    }
-
-    // Get logged-in user from your Next.js session
-    const user = await getCurrentUser();
-
-    if (!user) {
+    const contentLength = Number(request.headers.get("content-length") ?? 0);
+    if (contentLength > MAX_REQUEST_BYTES) {
       return Response.json(
-        {
-          success: false,
-          message: "You must be logged in to add items to cart",
-        },
+        { success: false, message: "Cart request is too large." },
+        { status: 413 }
+      );
+    }
+
+    const contentType = request.headers.get("content-type") ?? "";
+    let fields: RequestFields;
+    let formData: FormData | null = null;
+
+    if (contentType.includes("multipart/form-data")) {
+      formData = await request.formData();
+      fields = {};
+    } else if (contentType.includes("application/json")) {
+      const rawBody = await request.text();
+      if (Buffer.byteLength(rawBody, "utf8") > 64 * 1024) {
+        return Response.json(
+          { success: false, message: "Cart request is too large." },
+          { status: 413 }
+        );
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(rawBody);
+      } catch {
+        return Response.json(
+          { success: false, message: "Invalid JSON request." },
+          { status: 400 }
+        );
+      }
+      if (!isRecord(parsed)) {
+        return Response.json(
+          { success: false, message: "Invalid cart item." },
+          { status: 400 }
+        );
+      }
+      fields = parsed;
+    } else {
+      return Response.json(
+        { success: false, message: "Expected multipart form data or JSON." },
+        { status: 415 }
+      );
+    }
+
+    const productIdValue = readField(fields, formData, "productId", ["id"], 20);
+    const productId = productIdValue ? Number(productIdValue) : null;
+    if (
+      productId !== null &&
+      (!Number.isSafeInteger(productId) || productId <= 0)
+    ) {
+      return Response.json(
+        { success: false, message: "Invalid product ID." },
+        { status: 400 }
+      );
+    }
+
+    const quantityValue = readField(fields, formData, "quantity", [], 10);
+    const quantity = quantityValue ? Number(quantityValue) : 1;
+    if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 10000) {
+      return Response.json(
+        { success: false, message: "Quantity must be between 1 and 10,000." },
+        { status: 400 }
+      );
+    }
+
+    const email = readField(fields, formData, "email", [], FIELD_LIMITS.email);
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return Response.json(
+        { success: false, message: "Invalid email address." },
+        { status: 400 }
+      );
+    }
+
+    const item: ICartItem = {
+      key: randomUUID(),
+      productId,
+      name:
+        readField(fields, formData, "productName", ["name"], 200) ||
+        "Custom Service Order",
+      quantity,
+      width: readField(fields, formData, "width", ["customWidth"], FIELD_LIMITS.width),
+      height: readField(fields, formData, "height", ["customHeight"], FIELD_LIMITS.height),
+      jobName: readField(
+        fields,
+        formData,
+        "jobName",
+        ["fullName"],
+        FIELD_LIMITS.jobName
+      ),
+      additionalService: readField(
+        fields,
+        formData,
+        "additionalService",
+        ["addon", "material", "option"],
+        FIELD_LIMITS.additionalService
+      ),
+      orderNotes: readField(
+        fields,
+        formData,
+        "orderNotes",
+        ["notes"],
+        FIELD_LIMITS.orderNotes
+      ),
+      productSize: readField(fields, formData, "productSize", [], FIELD_LIMITS.productSize),
+      customShape: readField(fields, formData, "customShape", [], FIELD_LIMITS.customShape),
+      productType: readField(fields, formData, "productType", [], FIELD_LIMITS.productType),
+      fullName: readField(fields, formData, "fullName", [], FIELD_LIMITS.fullName),
+      business: readField(fields, formData, "business", [], FIELD_LIMITS.business),
+      phone: readField(fields, formData, "phone", [], FIELD_LIMITS.phone),
+      email,
+      quoteRequired: true,
+      artworks: await readArtworks(formData),
+    };
+
+    const owner = await getCartOwner();
+    if (!owner) {
+      return Response.json(
+        { success: false, message: "Unable to identify cart owner." },
         { status: 401 }
       );
     }
 
-    const contentType = request.headers.get("content-type") || "";
+    const cart = await getOrCreateCart(owner);
+    await addItemToCart(cart, owner, item);
 
-    let productId = 0;
-    let quantity = 1;
-    let width = "";
-    let height = "";
-    let jobName = "";
-    let additionalService = "";
-    let orderNotes = "";
-    let file: File | null = null;
-
-    /*
-     * Handle multipart/form-data
-     */
-    if (contentType.includes("multipart/form-data")) {
-      const formData = await request.formData();
-
-      productId = Number(
-        formData.get("productId") || formData.get("id")
-      );
-
-      quantity = Number(formData.get("quantity") ?? 1);
-
-      width = String(formData.get("width") || "");
-      height = String(formData.get("height") || "");
-      jobName = String(formData.get("jobName") || "");
-      additionalService = String(
-        formData.get("additionalService") || formData.get("addon") || ""
-      );
-      orderNotes = String(
-        formData.get("orderNotes") || formData.get("notes") || ""
-      );
-
-      const uploadedFile = formData.get("file");
-
-      if (uploadedFile instanceof File && uploadedFile.size > 0) {
-        file = uploadedFile;
-      }
-    }
-
-    /*
-     * Handle JSON
-     */
-    else {
-      const body = await request.json();
-
-      productId = Number(
-        body.productId || body.id
-      );
-
-      quantity = Number(body.quantity ?? 1);
-
-      width = body.width || "";
-      height = body.height || "";
-      jobName = body.jobName || "";
-      additionalService = body.additionalService || body.addon || "";
-      orderNotes = body.orderNotes || body.notes || "";
-    }
-
-    /*
-     * Validate product
-     */
-    if (!Number.isInteger(productId) || productId <= 0) {
-      return Response.json(
-        {
-          success: false,
-          message: "Invalid product ID",
-        },
-        { status: 400 }
-      );
-    }
-
-    /*
-     * Validate quantity
-     */
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      return Response.json(
-        {
-          success: false,
-          message: "Invalid quantity",
-        },
-        { status: 400 }
-      );
-    }
-
-    /*
-     * Prepare multipart request for WordPress
-     */
-    const formData = new FormData();
-
-    formData.append("id", String(productId));
-    formData.append("quantity", String(quantity));
-    formData.append("width", width);
-    formData.append("height", height);
-    formData.append("jobName", jobName);
-    formData.append(
-      "additionalService",
-      additionalService
-    );
-    formData.append("orderNotes", orderNotes);
-
-    if (file) {
-      formData.append("file", file, file.name);
-    }
-
-    /*
-     * Send cart request to custom WordPress plugin
-     */
-    const response = await fetch(
-      `${WORDPRESS_URL}/wp-json/mystore/v1/add`,
-      {
-        method: "POST",
-
-        headers: {
-          "x-store-secret": STORE_SECRET,
-
-          // IMPORTANT:
-          // This comes from the authenticated Next.js session.
-          "x-user-id": user.id,
-        },
-
-        body: formData,
-
-        cache: "no-store",
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error(
-        "WordPress cart error:",
-        response.status,
-        data
-      );
-
-      return Response.json(
-        {
-          success: false,
-          message:
-            data?.message ||
-            "Unable to add product to cart",
-          error: data,
-        },
-        {
-          status: response.status,
-        }
-      );
-    }
-
-    return Response.json(data, {
-      status: 200,
-    });
+    return Response.json({ success: true, itemKey: item.key });
   } catch (error) {
-    console.error(
-      "Add to cart API route error:",
-      error
-    );
+    const response = requestErrorResponse(error);
+    if (response) {
+      return response;
+    }
 
+    console.error("ADD_CART_ITEM_ERROR:", error);
     return Response.json(
-      {
-        success: false,
-        message: "Unable to add product to cart",
-      },
-      {
-        status: 500,
-      }
+      { success: false, message: "Unable to add product to cart." },
+      { status: 500 }
     );
   }
 }

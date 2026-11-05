@@ -69,6 +69,7 @@ export function ForgotPasswordForm() {
         .trim()
         .toLowerCase();
 
+        console.log("Normalized email:", normalizedEmail);
       const response = await fetch(
         "/api/auth/forgot-password",
         {
@@ -89,6 +90,7 @@ export function ForgotPasswordForm() {
 
       if (contentType?.includes("application/json")) {
         result = await response.json();
+        console.log("FORGOT_PASSWORD_RESPONSE:", result);
       } else {
         const text = await response.text();
 

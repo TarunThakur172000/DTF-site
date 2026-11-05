@@ -5,12 +5,12 @@ import { SectionHeading } from "../../components/ui/SectionHeading";
 import { Reveal } from "../../components/ui/Reveal";
 import { CtaBanner } from "../../components/sections/CtaBanner";
 
-const aboutimg = "/images/aboutimg.webp";
+const aboutimg = "/images/bussinessCard.webp";
 
 export const metadata: Metadata = {
-  title: "About Us",
+  title: "About PrintPressRepeat",
   description:
-    "PrintCraft Co. is a custom print shop built for businesses, teams and creators who need reliable, premium print production.",
+    "PrintPressRepeat helps businesses make their mark with quality promotional products and dependable print production.",
   alternates: { canonical: "/about" },
 };
 
@@ -18,9 +18,9 @@ export default function About() {
   return (
     <>
       <PageHero
-        eyebrow="About PrintCraft"
-        title="A print shop run by people who print for a living"
-        description="We started PrintCraft because too many print orders arrived late, faded, or nothing like the proof. We built the shop we wished existed."
+        eyebrow="About PrintPressRepeat"
+        title="Promotional products made to represent your brand"
+        description="We help businesses turn their brand into useful, memorable products for customers, teams, and events."
         crumbs={[{ label: "About Us" }]}
       />
 
@@ -28,21 +28,20 @@ export default function About() {
         <Reveal>
           <img
             src={aboutimg}
-            alt="PrintCraft production floor"
+            alt="Custom printed business cards"
             className="rounded-3xl shadow-lift w-full h-[420px] object-cover"
           />
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 className="text-3xl font-display font-bold">From one DTF printer to a full production floor</h2>
+          <h2 className="text-3xl font-display font-bold">Your brand, ready to go places</h2>
           <p className="mt-5 text-primary-400 leading-relaxed">
-            PrintCraft Co. opened with a single direct-to-film press and a handful of local
-            customers who needed better turnaround than the big-box print chains could offer.
-            Today our floor runs DTF, UV DTF, sublimation and embroidery lines side by side,
-            supported by an in-house art team that preps every file before it hits production.
+            PrintPressRepeat helps businesses bring their branding to life across business
+            cards, stickers, banners, event tents, magnets, and flags. We focus on clear
+            product options, dependable production, and artwork support from proof to delivery.
           </p>
           <p className="mt-4 text-primary-400 leading-relaxed">
-            We still run every order the same way we ran our first: proof it, confirm it, print
-            it right the first time.
+            Every order is reviewed carefully so your promotional products arrive ready to
+            represent your business.
           </p>
         </Reveal>
       </section>

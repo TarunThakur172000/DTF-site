@@ -4,8 +4,44 @@ import crypto from "crypto";
 import { connectDB } from "@/lib/server/db";
 import User from "@/models/User";
 import Order from "@/models/Order";
+import Cart from "@/models/Cart";
+import CheckoutTransaction from "@/models/CheckoutTransaction";
+import {
+  readRequestBody,
+  RequestBodyTooLargeError,
+} from "@/lib/server/request-body";
 
 export const runtime = "nodejs";
+
+interface WooWebhookLineItem {
+  product_id: number;
+  variation_id?: number;
+  name: string;
+  quantity: number;
+  price?: number;
+  subtotal?: string;
+  total?: string;
+  sku?: string;
+  image?: { src?: string };
+}
+
+interface WooWebhookOrder {
+  id: number;
+  status: string;
+  customer_id: number;
+  currency?: string;
+  total?: string;
+  total_tax?: string;
+  date_created?: string;
+  date_modified?: string;
+  transaction_id?: string;
+  payment_method?: string;
+  payment_method_title?: string;
+  meta_data?: { key: string; value: unknown }[];
+  line_items?: WooWebhookLineItem[];
+  billing?: Record<string, string | undefined>;
+  shipping?: Record<string, string | undefined>;
+}
 
 function verifyWooCommerceSignature(
   rawBody: string,
@@ -40,7 +76,7 @@ export async function POST(request: Request) {
     // IMPORTANT:
     // Read raw body BEFORE JSON.parse()
     // because WooCommerce signs the raw request body.
-    const rawBody = await request.text();
+    const rawBody = await readRequestBody(request, 2 * 1024 * 1024);
 
     const signature = request.headers.get(
       "x-wc-webhook-signature"
@@ -49,6 +85,16 @@ export async function POST(request: Request) {
     const topic = request.headers.get(
       "x-wc-webhook-topic"
     );
+    if (
+      topic !== "order.created" &&
+      topic !== "order.updated" &&
+      topic !== "order.deleted"
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Unsupported webhook topic." },
+        { status: 400 }
+      );
+    }
 
     if (
       !verifyWooCommerceSignature(
@@ -67,9 +113,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const wooOrder = JSON.parse(rawBody);
+    let wooOrder: WooWebhookOrder;
+    try {
+      wooOrder = JSON.parse(rawBody) as WooWebhookOrder;
+    } catch {
+      return NextResponse.json(
+        { success: false, message: "Invalid order payload." },
+        { status: 400 }
+      );
+    }
 
-    if (!wooOrder?.id) {
+    if (
+      !Number.isSafeInteger(wooOrder.id) ||
+      wooOrder.id <= 0 ||
+      typeof wooOrder.status !== "string" ||
+      !Number.isSafeInteger(wooOrder.customer_id)
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -81,12 +140,112 @@ export async function POST(request: Request) {
 
     await connectDB();
 
+    const requestId = wooOrder.meta_data?.find(
+      (entry) => entry.key === "ppr_checkout_request_id"
+    )?.value;
+    const checkoutTransaction =
+      typeof requestId === "string"
+        ? await CheckoutTransaction.findOne({
+            requestId,
+            $or: [
+              { wooCommerceOrderId: { $exists: false } },
+              { wooCommerceOrderId: wooOrder.id },
+            ],
+          })
+        : await CheckoutTransaction.findOne({
+            wooCommerceOrderId: wooOrder.id,
+          });
+
+    if (checkoutTransaction) {
+      const modifiedTimestamp = Date.parse(wooOrder.date_modified || "");
+      const modifiedAt = new Date(
+        Number.isFinite(modifiedTimestamp) ? modifiedTimestamp : Date.now()
+      );
+      const canApplyUpdate =
+        !checkoutTransaction.wooOrderModifiedAt ||
+        modifiedAt >= checkoutTransaction.wooOrderModifiedAt;
+
+      if (canApplyUpdate) {
+        const isCashOnDelivery = checkoutTransaction.gatewayId === "cod";
+        const orderStatus = isCashOnDelivery
+          ? ["cancelled", "refunded", "trash"].includes(wooOrder.status)
+            ? "cancelled"
+            : wooOrder.status === "failed"
+              ? "failed"
+              : ["processing", "completed"].includes(wooOrder.status)
+                ? "placed"
+                : checkoutTransaction.status
+          : ["processing", "completed"].includes(wooOrder.status)
+            ? "paid"
+            : wooOrder.status === "failed"
+              ? "failed"
+              : ["cancelled", "refunded", "trash"].includes(wooOrder.status)
+                ? "cancelled"
+                : ["pending", "on-hold"].includes(wooOrder.status)
+                  ? "pending"
+                  : checkoutTransaction.status;
+        const finalStatus =
+          !isCashOnDelivery &&
+          checkoutTransaction.status === "paid" &&
+          orderStatus !== "paid"
+            ? "paid"
+            : orderStatus;
+
+        if (
+          (finalStatus === "paid" || finalStatus === "placed") &&
+          checkoutTransaction.itemKeys.length
+        ) {
+          await Cart.updateOne(
+            {
+              ownerType: checkoutTransaction.ownerType,
+              ownerId: checkoutTransaction.ownerId,
+            },
+            {
+              $pull: {
+                items: {
+                  $or: checkoutTransaction.items.map((item) => ({
+                    key: item.key,
+                    quantity: item.quantity,
+                  })),
+                },
+              },
+              ...(checkoutTransaction.ownerType === "guest"
+                ? { $set: { expiresAt: new Date(Date.now() + 30 * 86400000) } }
+                : {}),
+            }
+          );
+        }
+
+        checkoutTransaction.status = finalStatus;
+        checkoutTransaction.wooCommerceOrderId = wooOrder.id;
+        checkoutTransaction.paymentTransactionId =
+          !isCashOnDelivery && typeof wooOrder.transaction_id === "string"
+            ? wooOrder.transaction_id.slice(0, 200)
+            : "";
+        checkoutTransaction.amount =
+          typeof wooOrder.total === "string" ? wooOrder.total : "";
+        checkoutTransaction.currency =
+          typeof wooOrder.currency === "string" ? wooOrder.currency : "";
+        checkoutTransaction.wooOrderModifiedAt = modifiedAt;
+        await checkoutTransaction.save();
+      }
+    }
+
     // Find our MongoDB user using the WooCommerce customer ID
-    const user = await User.findOne({
-      woocommerceCustomerId: wooOrder.customer_id,
-    });
+    const user =
+      checkoutTransaction?.ownerType === "user"
+        ? await User.findById(checkoutTransaction.ownerId)
+        : checkoutTransaction?.ownerType === "guest"
+          ? null
+          : await User.findOne({
+              woocommerceCustomerId: wooOrder.customer_id,
+            });
 
     if (!user) {
+      if (checkoutTransaction?.ownerType === "guest") {
+        return NextResponse.json({ success: true }, { status: 200 });
+      }
+
       console.warn(
         `No MongoDB user found for WooCommerce customer ${wooOrder.customer_id}`
       );
@@ -103,15 +262,11 @@ export async function POST(request: Request) {
     }
 
     const subtotal = wooOrder.line_items
-      ?.reduce(
-        (sum: number, item: any) =>
-          sum + Number(item.subtotal || 0),
-        0
-      )
+      ?.reduce((sum, item) => sum + Number(item.subtotal || 0), 0)
       .toFixed(2);
 
     const lineItems =
-      wooOrder.line_items?.map((item: any) => ({
+      wooOrder.line_items?.map((item) => ({
         productId: item.product_id,
         variationId: item.variation_id || 0,
         name: item.name,
@@ -123,7 +278,18 @@ export async function POST(request: Request) {
         image: item.image?.src || "",
       })) || [];
 
-    await Order.findOneAndUpdate(
+    const orderModifiedAt = new Date(
+      wooOrder.date_modified || Date.now()
+    );
+    const existingOrder = await Order.findOne({
+      wooCommerceOrderId: wooOrder.id,
+    }).select("dateModified");
+
+    if (
+      !existingOrder ||
+      orderModifiedAt.getTime() >= existingOrder.dateModified.getTime()
+    ) {
+      await Order.findOneAndUpdate(
       {
         wooCommerceOrderId: wooOrder.id,
       },
@@ -149,12 +315,17 @@ export async function POST(request: Request) {
           paymentMethodTitle:
             wooOrder.payment_method_title || "",
 
+          paymentTransactionId:
+            wooOrder.transaction_id || "",
+          checkoutTransactionId:
+            checkoutTransaction?.requestId || "",
+
           dateCreated: new Date(
-            wooOrder.date_created
+            wooOrder.date_created || Date.now()
           ),
 
           dateModified: new Date(
-            wooOrder.date_modified
+            orderModifiedAt
           ),
 
           billing: {
@@ -209,7 +380,8 @@ export async function POST(request: Request) {
         new: true,
         runValidators: true,
       }
-    );
+      );
+    }
 
     console.log(
       `WooCommerce ${topic}: Order ${wooOrder.id} synchronized`
@@ -222,6 +394,12 @@ export async function POST(request: Request) {
       { status: 200 }
     );
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json(
+        { success: false, message: "Webhook payload is too large." },
+        { status: 413 }
+      );
+    }
     console.error(
       "WOOCOMMERCE_ORDER_WEBHOOK_ERROR:",
       error

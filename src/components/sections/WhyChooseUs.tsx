@@ -6,7 +6,7 @@ export function WhyChooseUs() {
   return (
     <section className="section-py bg-surfaceMuted">
       <div className="container-px">
-        <SectionHeading eyebrow="Why Businesses Choose Us" title="Your Trusted Partner for Quality Printing" align="center" />
+        <SectionHeading eyebrow="Why Businesses Choose Us" title="Promotional Products Made Easy" align="center" />
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
           {WHY_US.map((item, i) => (
             <Reveal delay={i * 0.05} key={item.title} className="text-center">

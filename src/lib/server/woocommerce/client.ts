@@ -1,5 +1,15 @@
 import "server-only";
 
+export class WooCommerceApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly code: string
+  ) {
+    super(`WooCommerce REST API error ${status} (${code})`);
+    this.name = "WooCommerceApiError";
+  }
+}
+
 export async function wooCommerceRequest<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -14,7 +24,30 @@ export async function wooCommerceRequest<T>(
     );
   }
 
-  const url = `${baseUrl}/wp-json/wc/v3${endpoint}`;
+  let storeUrl: URL;
+  try {
+    storeUrl = new URL(baseUrl);
+  } catch {
+    throw new Error("WOOCOMMERCE_BASE_URL must be a valid URL");
+  }
+
+  const isLocalDevelopment =
+    process.env.NODE_ENV !== "production" &&
+    (storeUrl.hostname === "localhost" ||
+      storeUrl.hostname === "127.0.0.1" ||
+      storeUrl.hostname === "::1");
+  if (
+    (storeUrl.protocol !== "https:" && !isLocalDevelopment) ||
+    storeUrl.username ||
+    storeUrl.password ||
+    storeUrl.search ||
+    storeUrl.hash
+  ) {
+    throw new Error("WOOCOMMERCE_BASE_URL must use a secure HTTPS origin");
+  }
+
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+  const url = `${normalizedBaseUrl}/wp-json/wc/v3${endpoint}`;
 
   const credentials = Buffer.from(
     `${consumerKey}:${consumerSecret}`
@@ -30,18 +63,33 @@ export async function wooCommerceRequest<T>(
     ...options,
     headers,
     cache: "no-store",
+    redirect: "error",
   });
 
   const responseText = await response.text();
 
   if (!response.ok) {
-    console.error(
-      `WooCommerce REST API error ${response.status}:`,
-      responseText
-    );
-    throw new Error(
-      `WooCommerce REST API error ${response.status}: ${responseText}`
-    );
+    let code = "unknown_error";
+    try {
+      const errorPayload: unknown = JSON.parse(responseText);
+      if (
+        typeof errorPayload === "object" &&
+        errorPayload !== null &&
+        "code" in errorPayload &&
+        typeof errorPayload.code === "string" &&
+        /^[a-zA-Z0-9_-]{1,120}$/.test(errorPayload.code)
+      ) {
+        code = errorPayload.code;
+      }
+    } catch {
+      // Do not log or return the upstream body; it may contain customer data.
+    }
+
+    console.error("WooCommerce REST API request failed", {
+      status: response.status,
+      code,
+    });
+    throw new WooCommerceApiError(response.status, code);
   }
 
   return responseText
@@ -49,18 +97,34 @@ export async function wooCommerceRequest<T>(
     : (null as T);
 }
 
+export interface WooPaymentGateway {
+  id: string;
+  title: string;
+  description?: string;
+  enabled: boolean | "yes" | "no";
+}
+
+export async function getPaymentGateways() {
+  return wooCommerceRequest<WooPaymentGateway[]>("/payment_gateways");
+}
+
+export async function getWooOrder<T>(orderId: number) {
+  return wooCommerceRequest<T>(`/orders/${orderId}`);
+}
+
+export interface WooCommerceFetchResponse<T> {
+  success: boolean;
+  items?: T;
+  message?: string;
+  [key: string]: unknown;
+}
 
 export async function wooCommerceFetch<T>(
   endpoint: string,
   options: RequestInit = {},
   authToken?: string,
   sessionToken?: string
-): Promise<{
-  success: boolean;
-  items?: T;
-  message?: string;
-  [key: string]: any;
-}> {
+): Promise<WooCommerceFetchResponse<T>> {
   const baseUrl = process.env.WOOCOMMERCE_BASE_URL;
   const storeSecret = process.env.WP_STORE_SECRET;
 
@@ -95,18 +159,22 @@ export async function wooCommerceFetch<T>(
   });
 
   const responseText = await response.text();
-  let data: any;
+  let data: unknown;
 
   try {
-    data = responseText ? JSON.parse(responseText) : {};
+    data = responseText ? (JSON.parse(responseText) as unknown) : {};
   } catch {
     throw new Error(`Custom Store API returned invalid JSON (${response.status})`);
   }
 
   if (!response.ok) {
-    console.error(`Custom Store API error ${response.status}:`, data);
-    throw new Error(`Custom Store API error ${response.status}: ${data.message || responseText}`);
+    console.error(`Custom Store API error ${response.status}`);
+    throw new Error(`Custom Store API error ${response.status}`);
   }
 
-  return data;
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    throw new Error("Custom Store API returned an invalid response");
+  }
+
+  return data as WooCommerceFetchResponse<T>;
 }

@@ -28,6 +28,8 @@ export interface IOrder extends Document {
 
   paymentMethod: string;
   paymentMethodTitle: string;
+  paymentTransactionId?: string;
+  checkoutTransactionId?: string;
 
   dateCreated: Date;
   dateModified: Date;
@@ -135,6 +137,17 @@ const OrderSchema = new Schema<IOrder>(
     paymentMethodTitle: {
       type: String,
       default: "",
+    },
+
+    paymentTransactionId: {
+      type: String,
+      default: "",
+    },
+
+    checkoutTransactionId: {
+      type: String,
+      default: "",
+      index: true,
     },
 
     dateCreated: {

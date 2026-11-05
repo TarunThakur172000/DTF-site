@@ -23,19 +23,11 @@ interface CartContextValue {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-const STORAGE_KEY = "ppr_cart_v1";
+const STORAGE_KEY = "ppr_cart_v2";
 
 // Demo seed data so /cart isn't empty on first visit — replace with real
 // cart data fetched from your backend once you have one.
 const DEFAULT_ITEMS: CartItem[] = [
-  {
-    id: "dtf-transfers",
-    title: "DTF Transfers — Gang Sheet (22in x 24in)",
-    image: "/images/products/dtf-300x300.webp",
-    variant: "Standard finish",
-    price: 24.99,
-    quantity: 1,
-  },
   {
     id: "business-cards",
     title: "Business Cards — 16pt Matte",
@@ -43,6 +35,14 @@ const DEFAULT_ITEMS: CartItem[] = [
     variant: "500 count",
     price: 39.0,
     quantity: 2,
+  },
+  {
+    id: "promotional-banners",
+    title: "Promotional Banners",
+    image: "/images/Banner.webp",
+    variant: "3' x 6'",
+    price: 79.0,
+    quantity: 1,
   },
 ];
 

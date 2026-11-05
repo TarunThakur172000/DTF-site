@@ -11,22 +11,22 @@ const CHAT_OPTIONS = [
   {
     id: "turnaround",
     label: "What is your turnaround time?",
-    response: "Our standard turnaround time for DTF transfers is 1-2 business days. Same-day printing is available for rush orders placed before 12 PM!",
+    response: "Turnaround depends on the product and order details. Check the product page or contact our team for timing before placing a time-sensitive order.",
   },
   {
     id: "moq",
     label: "Is there a minimum order quantity?",
-    response: "We have NO minimum order quantity (MOQ)! Whether you need a single transfer for a sample or 10,000 for a large brand run, we have you covered.",
+    response: "Minimum quantities vary by product. The product page shows available quantities and pricing for each item.",
   },
   {
-    id: "application",
-    label: "How do I press the transfers?",
-    response: "Press at 320°F (160°C) for 15 seconds with medium-heavy pressure. Wait until completely cool (Cold Peel), peel the film, and press again for 5 seconds with a Teflon sheet.",
+    id: "products",
+    label: "What products do you offer?",
+    response: "We offer business cards, stickers, banners, event tents, magnets, and flags. Browse our Promotional Products page to explore the options.",
   },
   {
     id: "bulk",
     label: "Do you offer bulk discounts?",
-    response: "Yes! We offer tiered pricing for gang sheets and bulk orders. The more you buy, the more you save. You can request a custom quote for large projects.",
+    response: "Pricing and quantity breaks vary by product. Check the product page or contact our team for help with a large order.",
   },
 ];
 

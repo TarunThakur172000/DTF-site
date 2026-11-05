@@ -5,7 +5,7 @@ import { Button, LinkButton } from "../ui/Button";
 import QuoteModal from "../forms/QuoteModal";
 import { useState } from "react";
 
-const heroimg = "/images/herosection.png";
+const heroimg = "/images/EventTent.webp";
 
 export function Hero() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,12 +31,9 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="mt-5 text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05]"
           >
-            Custom printing
-               <br />
-                Built for
-
+            Promotional products
             <br />
-            <span className="text-accent-600">Growing Brands.</span>
+            for growing brands.
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -44,7 +41,7 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="mt-6 text-lg text-primary-400 max-w-lg"
           >
-           From premium DTF transfers and UV DTF stickers to custom apparel and promotional products, we help brands, print shops, schools, and businesses produce high-quality products with fast turnaround and dependable service.
+            Make your brand memorable with custom business cards, stickers, banners, event tents, magnets, and flags—made for your next campaign, storefront, or event.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -88,7 +85,7 @@ export function Hero() {
           <div className="rounded-3xl overflow-hidden shadow-lift">
             <img
               src={heroimg}
-              alt="Stack of freshly printed custom apparel and marketing materials"
+              alt="Branded pop-up event tent and promotional display"
               className="w-full h-[420px] object-cover"
               loading="eager"
             />
@@ -97,7 +94,7 @@ export function Hero() {
             <span className="w-2.5 h-2.5 rounded-full bg-success-600 animate-pulse" aria-hidden="true" />
             <div>
               <p className="text-sm font-semibold text-primary-900">Order #4821 shipped</p>
-              <p className="text-xs text-primary-400">200 DTF transfers — 2 days</p>
+              <p className="text-xs text-primary-400">Custom branded for your next event</p>
             </div>
           </div>
         </motion.div>

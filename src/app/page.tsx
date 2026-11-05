@@ -5,9 +5,9 @@ import { WhyChooseUs } from "../components/sections/WhyChooseUs";
 import { CtaBanner } from "../components/sections/CtaBanner";
 
 export const metadata: Metadata = {
-  title: "Custom Printing Made Easy",
+  title: "Custom Promotional Products for Your Business",
   description:
-    "PrintPressRepeat delivers custom DTF transfers, promotional products, apparel and team jerseys with fast turnaround and premium materials.",
+    "Create a lasting impression with custom business cards, stickers, banners, event tents, magnets, and flags.",
   alternates: { canonical: "/" },
 };
 

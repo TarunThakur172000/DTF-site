@@ -14,9 +14,8 @@ npm start        # run the production build
 ## What changed
 
 - **Routing**: `react-router-dom` → Next.js file-based routing in `src/app/`.
-  Dynamic routes (`/transfer-printing/:method`, `/promotional-products/:slug`) are now
-  `[method]/page.tsx` and `[slug]/page.tsx`, with `generateStaticParams` so they're
-  pre-rendered at build time, and `generateMetadata` for per-page SEO.
+  Dynamic promotional product routes (`/promotional-products/:slug`) use
+  `[slug]/page.tsx`, with `generateStaticParams` and `generateMetadata`.
 - **SEO**: the old `useSeo()` hook (which set `document.title` client-side) is gone.
   Every page now exports proper Next.js `metadata` (or `generateMetadata` for dynamic
   routes), which is far better for SEO since it's rendered server-side.
@@ -30,24 +29,21 @@ npm start        # run the production build
   requests.
 - **Client vs. server components**: files using hooks, `framer-motion`, `react-hook-form`,
   or `react-dropzone` are marked `'use client'`. Page files that don't need interactivity
-  themselves stay as server components so they can export `metadata`. Two pages that
-  previously mixed a form with page content (`Contact`, `Art Zone`) were split into a
-  server `page.tsx` (metadata) + a small client form component.
+  themselves stay as server components so they can export `metadata`. The Contact page
+  separates its server-rendered metadata from the interactive form.
 - **Page transitions / scroll-to-top**: reproduced via `src/app/template.tsx`, which
   remounts on every navigation (fades content in and resets scroll), replacing the old
   `AnimatePresence` + `ScrollToTop` combo in `App.tsx`.
 - **Images**: assets moved to `/public` and referenced by plain string paths (e.g.
-  `/images/products/dtf-300x300.webp`) instead of bundler imports, so existing `<img>`
+  `/images/bussinessCard.webp`) instead of bundler imports, so existing `<img>`
   usage needed no further changes. You can swap these for `next/image` later for
   automatic optimization if you want.
-- **Route renames** (for cleaner URLs): `/Instruction` → `/instruction`,
-  `/privacyPolicy` → `/privacy-policy`, `/term&condition` → `/terms`. Footer/nav links
-  were updated to match.
+- **Route renames** (for cleaner URLs): `/privacyPolicy` → `/privacy-policy` and
+  `/term&condition` → `/terms`. Footer/nav links were updated to match.
 
 ## Verified
 
-`npm run build` completes with zero errors and all 24 routes (static + SSG) generate
-successfully.
+Run `npm run build` to validate the production build and generated routes.
 
 ## Deploying
 

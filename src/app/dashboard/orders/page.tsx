@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { Card } from "../../../components/ui/Card";
-import { StatusBadge } from "../../../components/dashboard/StatusBadge";
+import {
+  DashboardOrdersTable,
+  type DashboardOrderRow,
+} from "../../../components/dashboard/DashboardOrdersTable";
 import { getCurrentUser } from "@/lib/server/auth/session";
 import { getCustomerOrders } from "@/lib/server/woocommerce/orders";
 
@@ -17,9 +20,33 @@ export default async function DashboardOrdersPage() {
     redirect("/login");
   }
 
-  const orders = user.woocommerceCustomerId
-    ? await getCustomerOrders(user.woocommerceCustomerId)
-    : [];
+  let orders: Awaited<ReturnType<typeof getCustomerOrders>> = [];
+  let ordersError = false;
+
+  if (user.woocommerceCustomerId) {
+    try {
+      orders = await getCustomerOrders(user.woocommerceCustomerId);
+    } catch (error) {
+      console.error("DASHBOARD_ORDERS_FETCH_ERROR:", error);
+      ordersError = true;
+    }
+  }
+
+  const orderRows: DashboardOrderRow[] = orders.map((order) => ({
+    id: order.id,
+    date: new Date(order.date_created).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    itemCount: (order.line_items ?? []).reduce(
+      (total, item) => total + item.quantity,
+      0
+    ),
+    currency: order.currency,
+    total: order.total,
+    status: order.status,
+  }));
 
   return (
     <div className="space-y-6">
@@ -31,64 +58,18 @@ export default async function DashboardOrdersPage() {
       </div>
 
       <Card className="overflow-hidden">
-        {orders.length === 0 ? (
+        {ordersError ? (
+          <div className="px-6 py-12 text-center text-primary-400" role="status">
+            Your orders are temporarily unavailable. Please try again later.
+          </div>
+        ) : orders.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <p className="text-primary-400">
               You don&apos;t have any orders yet.
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-primary-50 bg-surfaceMuted text-left text-primary-400">
-                  <th className="px-6 py-3.5 font-medium">Order</th>
-                  <th className="px-6 py-3.5 font-medium">Date</th>
-                  <th className="px-6 py-3.5 font-medium">Items</th>
-                  <th className="px-6 py-3.5 font-medium">Total</th>
-                  <th className="px-6 py-3.5 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-50">
-                {orders.map((order) => {
-                  const itemCount = (order.line_items ?? []).reduce(
-                    (total, item) => total + item.quantity,
-                    0
-                  );
-
-                  return (
-                    <tr
-                      key={order.id}
-                      className="hover:bg-surfaceMuted/60"
-                    >
-                      <td className="px-6 py-4 font-medium text-primary-900">
-                        #{order.id}
-                      </td>
-                      <td className="px-6 py-4 text-primary-400">
-                        {new Date(order.date_created).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          }
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-primary-400">
-                        {itemCount}
-                      </td>
-                      <td className="px-6 py-4 font-medium text-primary-900">
-                        {order.currency} {Number(order.total).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={order.status} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DashboardOrdersTable orders={orderRows} />
         )}
       </Card>
     </div>

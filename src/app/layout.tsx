@@ -20,11 +20,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.printpressrepeat.com"),
   title: {
-    default: "PrintPressRepeat | Custom DTF Transfers & Promotional Printing",
+    default: "PrintPressRepeat | Custom Promotional Products",
     template: "%s | PrintPressRepeat",
   },
   description:
-    "Premium DTF, UV DTF, glitter and sublimation transfers, custom apparel, and promotional products — no minimums, fast turnaround, dependable service.",
+    "Shop custom business cards, stickers, banners, event tents, magnets, and flags for your brand, business, or event.",
   icons: {
     icon: [{ url: "/favicon.ico" }, { url: "/favicon.svg", type: "image/svg+xml" }],
   },

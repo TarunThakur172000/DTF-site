@@ -25,7 +25,7 @@ export function CtaBanner() {
             </h2>
 
             <p className="mt-4 text-primary-100 max-w-2xl mx-auto">
-              Whether you need premium DTF transfers, UV DTF stickers, sublimation transfers, or custom printing, our team is ready to deliver exceptional quality, fast turnaround, and service you can count on.
+              From business cards and stickers to event displays and branded giveaways, find the promotional products that put your business in front of more people.
             </p>
 
             <div className="mt-8">

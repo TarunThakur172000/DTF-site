@@ -8,6 +8,7 @@ export interface WooOrder {
   status: string;
   currency: string;
   total: string;
+  discount_total: string;
   subtotal: string;
   total_tax: string;
   date_created: string;
@@ -113,16 +114,21 @@ export async function getCustomerOrder(
 
 export interface CreateOrderInput {
   customer_id?: number;
+  status?: "pending" | "processing";
   payment_method?: string;
   payment_method_title?: string;
-  set_paid?: boolean;
+  set_paid: false;
   billing: WooOrder["billing"];
-  shipping?: WooOrder["shipping"];
+  shipping: WooOrder["shipping"];
   line_items: {
     product_id: number;
     variation_id?: number;
     quantity: number;
+    meta_data?: { key: string; value: string }[];
   }[];
+  meta_data: { key: string; value: string }[];
+  coupon_lines?: { code: string }[];
+  customer_note?: string;
   shipping_lines?: {
     method_id: string;
     method_title: string;
@@ -132,6 +138,10 @@ export interface CreateOrderInput {
 
 export interface CreateOrderResponse extends WooOrder {
   order_key: string;
+  payment_url?: string;
+  needs_payment?: boolean;
+  meta_data?: { key: string; value: unknown }[];
+  coupon_lines?: { code: string; discount?: string; discount_tax?: string }[];
 }
 
 export async function createOrder(
@@ -140,5 +150,19 @@ export async function createOrder(
   return wooCommerceRequest<CreateOrderResponse>("/orders", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+export async function cancelOrder(orderId: number) {
+  return updateOrderStatus(orderId, "cancelled");
+}
+
+export async function updateOrderStatus(
+  orderId: number,
+  status: "pending" | "processing" | "cancelled"
+) {
+  return wooCommerceRequest<CreateOrderResponse>(`/orders/${orderId}`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
   });
 }

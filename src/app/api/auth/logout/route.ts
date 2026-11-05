@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { clearSession } from "@/lib/server/auth/session";
+import { startGuestCart } from "@/lib/server/cart";
 
 export async function POST() {
   try {
     const cookieStore = await cookies();
 
-    // 1. Destroy the WooCommerce JWT cookie so the cart resets
+    await clearSession();
     cookieStore.delete("wp_jwt");
-
-    // 2. Destroy your MongoDB custom session cookie 
-    // Note: If you named your session cookie something else during your 
-    // login route (like "auth_session"), make sure to use that name here!
-    cookieStore.delete("session"); 
+    cookieStore.delete("woo_cart_token");
+    await startGuestCart();
 
     return NextResponse.json(
-      { success: true, message: "Logged out successfully" },
+      {
+        success: true,
+        message: "Logged out successfully",
+      },
       { status: 200 }
     );
   } catch (error) {

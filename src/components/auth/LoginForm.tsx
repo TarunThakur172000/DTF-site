@@ -57,11 +57,7 @@ const onSubmit = async (data: LoginValues) => {
       // Login successful
       // -----------------------------------
 
-      // Save the WordPress JWT token if returned in the response payload
-      if (result.token) {
-        localStorage.setItem("cart-token", result.token); 
-      }
-
+      window.dispatchEvent(new Event("cart-updated"));
       router.push("/dashboard");
       router.refresh();
     } catch (error) {

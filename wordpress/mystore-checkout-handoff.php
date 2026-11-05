@@ -10,6 +10,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 add_filter(
+	'upload_mimes',
+	function ( $mimes ) {
+		$mimes['ai']   = 'application/postscript';
+		$mimes['eps']  = 'application/postscript';
+		$mimes['tif']  = 'image/tiff';
+		$mimes['tiff'] = 'image/tiff';
+		return $mimes;
+	}
+);
+
+add_filter(
 	'woocommerce_add_cart_item_data',
 	'mystore_capture_base_unit_price',
 	20,

@@ -16,7 +16,7 @@ import { forgotPasswordSchema } from "@/lib/server/validation/auth";
 export async function POST(request: Request) {
   try {
    const body = await request.json();
-
+    
 const result = forgotPasswordSchema.safeParse(body);
 
 if (!result.success) {
@@ -25,42 +25,19 @@ if (!result.success) {
 
 const { email } = result.data;
 
-    // // --------------------------------
-    // // 1. Validate email
-    // // --------------------------------
+    // --------------------------------
+    // 1. Connect to DB
+    await connectDB();
+    
+    // --------------------------------
 
-    // if (
-    //   typeof email !== "string" ||
-    //   !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-    //     email.trim()
-    //   )
-    // ) {
-    //   return NextResponse.json(
-    //     {
-    //       success: false,
-    //       message: "Please provide a valid email address.",
-    //     },
-    //     { status: 400 }
-    //   );
-    // }
 
-    // const normalizedEmail = email
-    //   .trim()
-    //   .toLowerCase();
-
-    // // --------------------------------
-    // // 2. Connect database
-    // // --------------------------------
-
-    // await connectDB();
-
-    // // --------------------------------
-    // // 3. Find user
-    // // --------------------------------
-
+ 
     const user = await User.findOne({
       email: email,
     });
+
+    
 
     /*
      * Important:

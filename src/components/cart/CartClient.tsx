@@ -8,23 +8,18 @@ import { Card } from "../ui/Card";
 
 type CustomCartItem = {
   key: string;
-  id: number;
+  id: number | null;
   quantity: number;
   name?: string;
-
+  image: string;
   width: string;
   height: string;
   jobName: string;
-
   additionalService?: string;
   orderNotes?: string;
   fileUrl?: string;
-
-  prices?: {
-    price: string;
-    line_total: string;
-    currency_symbol: string;
-  };
+  quoteRequired: boolean;
+  artworks: { fileName: string; url: string }[];
 };
 
 type CustomCartResponse = {
@@ -32,20 +27,14 @@ type CustomCartResponse = {
 
   items: CustomCartItem[];
 
-  totals?: {
-    subtotal: string;
-    shipping: string;
-    tax: string;
-    total: string;
-    currency_symbol: string;
-  };
-
   cartCount?: number;
   message?: string;
 };
 export function CartClient() {
   const [cart, setCart] = useState<CustomCartResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [mutationError, setMutationError] = useState("");
 
   useEffect(() => {
     loadCart();
@@ -79,6 +68,7 @@ export function CartClient() {
       const json: CustomCartResponse = await response.json();
 
       if (json.success) {
+        setLoadError("");
         setCart(json);
       } else {
         throw new Error(
@@ -87,7 +77,9 @@ export function CartClient() {
       }
     } catch (error) {
       console.error("Failed to load cart:", error);
-      setCart(null);
+      setLoadError(
+        error instanceof Error ? error.message : "Unable to load your cart."
+      );
     } finally {
       setLoading(false);
     }
@@ -100,6 +92,7 @@ export function CartClient() {
     if (quantity < 1) return;
 
     try {
+      setMutationError("");
       const response = await fetch("/api/cart/update", {
         method: "POST",
         headers: {
@@ -129,11 +122,15 @@ export function CartClient() {
         "Failed to update quantity:",
         error
       );
+      setMutationError(
+        error instanceof Error ? error.message : "Unable to update the cart."
+      );
     }
   }
 
   async function removeItem(itemKey: string) {
     try {
+      setMutationError("");
       const response = await fetch(
         `/api/cart?key=${encodeURIComponent(itemKey)}`,
         {
@@ -159,6 +156,9 @@ export function CartClient() {
         "Failed to remove item:",
         error
       );
+      setMutationError(
+        error instanceof Error ? error.message : "Unable to update the cart."
+      );
     }
   }
 
@@ -168,6 +168,21 @@ export function CartClient() {
         <p className="text-primary-400">
           Loading cart...
         </p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-red-600">{loadError}</p>
+        <button
+          type="button"
+          onClick={() => void loadCart()}
+          className="mt-4 font-semibold text-accent-600 hover:underline"
+        >
+          Try again
+        </button>
       </div>
     );
   }
@@ -203,28 +218,16 @@ export function CartClient() {
     );
   }
 
-  const subtotal = cart.items.reduce(
-    (acc, item) => {
-      const itemPrice = item.prices?.price
-        ? Number(item.prices.price) / 100
-        : 5.0;
-
-      return acc + itemPrice * item.quantity;
-    },
-    0
-  );
-
-  const total = subtotal;
-
   return (
     <div className="grid lg:grid-cols-3 gap-8 items-start">
+      {mutationError && (
+        <p role="alert" className="lg:col-span-3 text-sm text-red-600">
+          {mutationError}
+        </p>
+      )}
       {/* Cart Items */}
       <div className="lg:col-span-2 space-y-4">
         {cart.items.map((item) => {
-          const price = item.prices?.price
-            ? Number(item.prices.price) / 100
-            : 5.0;
-
           return (
             <Card
               key={item.key}
@@ -232,8 +235,8 @@ export function CartClient() {
             >
               {/* Product Icon */}
               <div className="w-20 h-20 rounded-xl overflow-hidden bg-surfaceMuted shrink-0 flex items-center justify-center">
-                <img 
-                  src={item.fileUrl || "/placeholder-image.jpg"}
+              <img
+                src={item.image}
                   alt={item.name}
                   className="w-full h-full object-cover"
                 />
@@ -292,25 +295,28 @@ export function CartClient() {
                     </p>
                   )}
 
-                  {item.fileUrl && (
+                  {item.artworks.length > 0 && (
                     <p>
                       <span className="font-medium text-primary-700">
-                        Design File:
+                        Design Files:
                       </span>{" "}
-                      <a
-                        href={item.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-accent-600 hover:underline"
-                      >
-                        View File
-                      </a>
+                      {item.artworks.map((artwork, index) => (
+                        <span key={artwork.url}>
+                          {index > 0 ? ", " : ""}
+                          <a
+                            href={artwork.url}
+                            className="text-accent-600 hover:underline"
+                          >
+                            {artwork.fileName}
+                          </a>
+                        </span>
+                      ))}
                     </p>
                   )}
                 </div>
 
                 <p className="mt-2 font-semibold text-accent-600">
-                  ${price.toFixed(2)}
+                  Price confirmed at checkout
                 </p>
               </div>
 
@@ -372,31 +378,16 @@ export function CartClient() {
           Order Summary
         </h2>
 
-        <dl className="mt-5 space-y-3 text-sm">
-          <Row
-            label="Subtotal"
-            value={subtotal}
-          />
-
-          <Row
-            label="Shipping"
-            value={0}
-          />
-
-          <Row
-            label="Tax"
-            value={0}
-          />
-        </dl>
+        <div className="mt-5 space-y-3 text-sm">
+          <p className="text-primary-500">
+            WooCommerce calculates product prices, shipping, and taxes at
+            checkout.
+          </p>
+        </div>
 
         <div className="mt-4 pt-4 border-t border-primary-50 flex items-center justify-between">
-          <span className="font-semibold">
-            Total
-          </span>
-
-          <span className="text-xl font-bold text-primary-900">
-            ${total.toFixed(2)}
-          </span>
+          <span className="font-semibold">Total</span>
+          <span className="text-xl font-bold text-primary-900">At checkout</span>
         </div>
 
         <LinkButton
@@ -414,24 +405,6 @@ export function CartClient() {
           Continue shopping
         </Link>
       </Card>
-    </div>
-  );
-}
-
-function Row({
-  label,
-  value,
-}: {
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="flex items-center justify-between text-primary-400">
-      <dt>{label}</dt>
-
-      <dd className="font-medium text-primary-900">
-        ${Math.abs(value).toFixed(2)}
-      </dd>
     </div>
   );
 }

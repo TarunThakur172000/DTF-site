@@ -19,9 +19,17 @@ export default async function DashboardOverviewPage() {
     redirect("/login");
   }
 
-  const orders = user.woocommerceCustomerId
-    ? await getCustomerOrders(user.woocommerceCustomerId)
-    : [];
+  let orders: Awaited<ReturnType<typeof getCustomerOrders>> = [];
+  let ordersError = false;
+
+  if (user.woocommerceCustomerId) {
+    try {
+      orders = await getCustomerOrders(user.woocommerceCustomerId);
+    } catch (error) {
+      console.error("DASHBOARD_ORDERS_FETCH_ERROR:", error);
+      ordersError = true;
+    }
+  }
 
   /*
    * Dashboard statistics
@@ -40,12 +48,12 @@ export default async function DashboardOverviewPage() {
   const stats = [
     {
       label: "Orders in Production",
-      value: processingOrders,
+      value: ordersError ? "—" : processingOrders,
       icon: Clock3,
     },
     {
       label: "Total Orders",
-      value: totalOrders,
+      value: ordersError ? "—" : totalOrders,
       icon: Package,
     },
   ];
@@ -99,7 +107,11 @@ export default async function DashboardOverviewPage() {
         </div>
 
         <div className="mt-4 overflow-x-auto">
-          {recentOrders.length === 0 ? (
+          {ordersError ? (
+            <p className="py-10 text-center text-sm text-primary-400" role="status">
+              Your orders are temporarily unavailable. Please try again later.
+            </p>
+          ) : recentOrders.length === 0 ? (
             <div className="py-10 text-center">
               <Package
                 size={28}
@@ -186,4 +198,3 @@ export default async function DashboardOverviewPage() {
     </div>
   );
 }
-

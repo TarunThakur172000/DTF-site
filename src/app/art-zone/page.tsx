@@ -1,45 +1,50 @@
 import type { Metadata } from "next";
-import { PageHero } from "../../components/sections/PageHero";
 import { ART_WORKFLOW } from "../../data/site";
-import { SectionHeading } from "../../components/ui/SectionHeading";
-import { Reveal } from "../../components/ui/Reveal";
 import { ArtZoneForm } from "../../components/forms/ArtZoneForm";
+import { PageHero } from "../../components/sections/PageHero";
+import { Reveal } from "../../components/ui/Reveal";
+import { SectionHeading } from "../../components/ui/SectionHeading";
 
 export const metadata: Metadata = {
-  title: "Art Zone — Artwork Upload, Vector Conversion & Digitizing",
-  description: "Upload your artwork, logos or images and request vector conversion, digitizing, image cleanup or artwork recreation from our art team.",
+  title: "Art Zone — Artwork Services",
+  description:
+    "Get help preparing artwork for promotional products. Request vector conversion, image cleanup, artwork recreation, and print file preparation.",
   alternates: { canonical: "/art-zone" },
 };
 
-export default function ArtZone() {
+export default function ArtZonePage() {
   return (
     <>
       <PageHero
         eyebrow="Art Zone"
-        title="Your artwork, prepped by real designers"
-        description="Upload files, pick a service, and track your request from upload to delivery — no back-and-forth email threads required."
+        title="Artwork help for your next big idea"
+        description="Our art team can help prepare your logo and designs for business cards, stickers, banners, and other promotional products."
         crumbs={[{ label: "Art Zone" }]}
       />
 
-      <section className="section-py container-px grid lg:grid-cols-5 gap-12">
+      <section className="section-py container-px grid items-start gap-12 lg:grid-cols-5">
         <div className="lg:col-span-3">
-          <h2 className="text-2xl font-display font-bold mb-6">Submit an artwork request</h2>
+          <SectionHeading
+            eyebrow="Get started"
+            title="Tell us about your artwork"
+            description="Choose a service, share a few details, and upload your files so our team can review your request."
+          />
           <ArtZoneForm />
         </div>
 
         <div className="lg:col-span-2">
           <Reveal>
-            <SectionHeading eyebrow="How it works" title="Request workflow" />
+            <SectionHeading eyebrow="What to expect" title="A clear path from file to print" />
           </Reveal>
-          <ol className="mt-8 relative border-l border-primary-100 pl-6 space-y-8">
-            {ART_WORKFLOW.map((step, i) => (
-              <Reveal delay={i * 0.05} key={step.title}>
+          <ol className="relative mt-8 space-y-8 border-l border-primary-100 pl-6">
+            {ART_WORKFLOW.map((step, index) => (
+              <Reveal delay={index * 0.05} key={step.title}>
                 <li className="relative">
-                  <span className="absolute -left-[31px] top-0 flex items-center justify-center w-6 h-6 rounded-full bg-accent-600 text-white text-xs font-bold">
-                    {i + 1}
+                  <span className="absolute -left-[31px] top-0 flex h-6 w-6 items-center justify-center rounded-full bg-accent-600 text-xs font-bold text-white">
+                    {index + 1}
                   </span>
                   <h3 className="font-semibold">{step.title}</h3>
-                  <p className="text-sm text-primary-400 mt-1">{step.description}</p>
+                  <p className="mt-1 text-sm text-primary-400">{step.description}</p>
                 </li>
               </Reveal>
             ))}

@@ -4,6 +4,7 @@ import argon2 from "argon2";
 import { connectDB } from "@/lib/server/db";
 import User from "@/models/User";
 import { createSession } from "@/lib/server/auth/session";
+import { mergeGuestCartIntoUser } from "@/lib/server/cart";
 import { loginSchema } from "@/lib/server/validation/auth";
 import { validationError } from "@/lib/server/validation/response";
 
@@ -80,12 +81,34 @@ export async function POST(request: Request) {
     }
 
     // -----------------------------------
-    // 7. Create application session
+    // 7. Move the browser's guest cart into the account before changing identity.
+    try {
+      await mergeGuestCartIntoUser(user._id.toString());
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === "CART_MERGE_LIMIT_EXCEEDED" ||
+          error.message === "CART_MERGE_CONFLICT")
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Your guest cart could not be merged because the account cart has reached its limit. Please remove some items and try again.",
+          },
+          { status: 409 }
+        );
+      }
+
+      throw error;
+    }
+
+    // 8. Create application session
     // -----------------------------------
     await createSession(user._id.toString());
 
     // -----------------------------------
-    // 8. Return success
+    // 9. Return success
     // -----------------------------------
     return NextResponse.json(
       {
@@ -112,4 +135,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

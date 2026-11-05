@@ -1,200 +1,80 @@
-import { cookies } from "next/headers";
-import { getCurrentUser } from "@/lib/server/auth/session";
+import {
+  getCart,
+  getCartOwner,
+  refreshGuestCart,
+  toCartResponse,
+} from "@/lib/server/cart";
 
 export const dynamic = "force-dynamic";
 
-const WORDPRESS_URL = process.env.WOOCOMMERCE_BASE_URL;
-const STORE_SECRET = process.env.WP_STORE_SECRET;
-
-async function getAuthenticatedUserId() {
-  const session = await getCurrentUser();
-
-  if (!session?.id) {
-    throw new Error("UNAUTHORIZED");
-  }
-
-  return session.id;
-}
-
-/**
- * GET /api/cart
- *
- * Fetch the logged-in user's cart from WordPress.
- */
 export async function GET() {
   try {
-    if (!WORDPRESS_URL) {
-      throw new Error("WOOCOMMERCE_BASE_URL is missing");
-    }
-
-    if (!STORE_SECRET) {
-      throw new Error("WP_STORE_SECRET is missing");
-    }
-
-    const userId = await getAuthenticatedUserId();
-
-    const response = await fetch(
-      `${WORDPRESS_URL}/wp-json/mystore/v1/cart`,
-      {
-        method: "GET",
-        headers: {
-          "x-store-secret": STORE_SECRET,
-          "x-user-id": userId,
-        },
-        cache: "no-store",
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error( 
-        "WordPress get cart error:",
-        response.status,
-        data
-      );
-
+    const owner = await getCartOwner();
+    if (!owner) {
       return Response.json(
-        {
-          success: false,
-          message: data?.message || "Unable to fetch cart",
-          error: data,
-        },
-        {
-          status: response.status,
-        }
+        { success: false, message: "Unable to identify cart owner." },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
       );
     }
 
-    return Response.json(data);
+    const cart = await getCart(owner);
+    return Response.json(toCartResponse(cart), {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   } catch (error) {
-    console.error("Get cart API route error:", error);
-
-    if (
-      error instanceof Error &&
-      error.message === "UNAUTHORIZED"
-    ) {
-      return Response.json(
-        {
-          success: false,
-          message: "You must be logged in",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
+    console.error("GET_CART_ERROR:", error);
     return Response.json(
-      {
-        success: false,
-        message: "Unable to fetch cart",
-      },
-      {
-        status: 500,
-      }
+      { success: false, message: "Unable to fetch cart." },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
 
-/**
- * DELETE /api/cart
- *
- * If ?key=xxx is provided:
- *     Remove one cart item.
- *
- * Otherwise:
- *     Clear the entire cart.
- */
 export async function DELETE(request: Request) {
   try {
-    if (!WORDPRESS_URL) {
-      throw new Error("WOOCOMMERCE_BASE_URL is missing");
+    const owner = await getCartOwner(false);
+    if (!owner) {
+      return Response.json(
+        { success: false, message: "Cart not found." },
+        { status: 404 }
+      );
     }
 
-    if (!STORE_SECRET) {
-      throw new Error("WP_STORE_SECRET is missing");
+    const cart = await getCart(owner);
+    if (!cart) {
+      return Response.json({ success: true, items: [] });
     }
 
-    const userId = await getAuthenticatedUserId();
-
-    const url = new URL(request.url);
-    const itemKey = url.searchParams.get("key");
-
-    let endpoint: string;
-
+    const itemKey = new URL(request.url).searchParams.get("key");
     if (itemKey) {
-      endpoint = `/wp-json/mystore/v1/cart/item?key=${encodeURIComponent(
-        itemKey
-      )}`;
+      if (!/^[0-9a-f-]{36}$/i.test(itemKey)) {
+        return Response.json(
+          { success: false, message: "Invalid cart item key." },
+          { status: 400 }
+        );
+      }
+
+      const itemIndex = cart.items.findIndex((item) => item.key === itemKey);
+      if (itemIndex < 0) {
+        return Response.json(
+          { success: false, message: "Cart item not found." },
+          { status: 404 }
+        );
+      }
+      cart.items.splice(itemIndex, 1);
     } else {
-      endpoint = "/wp-json/mystore/v1/cart";
+      cart.items.splice(0, cart.items.length);
     }
 
-    const response = await fetch(
-      `${WORDPRESS_URL}${endpoint}`,
-      {
-        method: "DELETE",
-        headers: {
-          "x-store-secret": STORE_SECRET,
-          "x-user-id": userId,
-        },
-        cache: "no-store",
-      }
-    );
+    refreshGuestCart(cart, owner);
+    await cart.save();
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error(
-        "WordPress delete cart error:",
-        response.status,
-        data
-      );
-
-      return Response.json(
-        {
-          success: false,
-          message:
-            data?.message || "Unable to modify cart",
-          error: data,
-        },
-        {
-          status: response.status,
-        }
-      );
-    }
-
-    return Response.json(data);
+    return Response.json({ success: true });
   } catch (error) {
-    console.error(
-      "Delete cart API route error:",
-      error
-    );
-
-    if (
-      error instanceof Error &&
-      error.message === "UNAUTHORIZED"
-    ) {
-      return Response.json(
-        {
-          success: false,
-          message: "You must be logged in",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
+    console.error("DELETE_CART_ERROR:", error);
     return Response.json(
-      {
-        success: false,
-        message: "Unable to modify cart",
-      },
-      {
-        status: 500,
-      }
+      { success: false, message: "Unable to modify cart." },
+      { status: 500 }
     );
   }
 }

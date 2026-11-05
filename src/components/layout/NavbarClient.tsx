@@ -101,6 +101,8 @@ export function NavbarClient({
               >
                 <Link
                   href={item.to}
+                  target={item.target}
+                  rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
                   className={`flex items-center px-3.5 py-2 rounded-xl text-sm font-medium transition-colors duration-150 ${
                     isActive ? "text-accent-600" : "text-primary-50 hover:text-accent-600"
                   }`}
@@ -203,7 +205,10 @@ export function NavbarClient({
                 <div key={item.label}>
                   <Link
                     href={item.to}
+                    target={item.target}
+                    rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
                     className="block px-3 py-2.5 rounded-xl font-medium text-primary-900 hover:bg-surfaceMuted"
+                    onClick={() => setMobileOpen(false)}
                   >
                     {item.label}
                   </Link>
